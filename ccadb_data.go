@@ -2,13 +2,16 @@ package ccadb_data
 
 import (
 	"crypto/sha256"
+	"embed"
 	"encoding/csv"
 	"encoding/hex"
-	"os"
 	"strings"
 
 	"go.uber.org/zap"
 )
+
+//go:embed data/AllCertificateRecordsCSVFormatv4
+var f embed.FS
 
 // Map of CA Certificate capabilities, indexed by SHA-256(Certificate).
 type caCertCapabilities struct {
@@ -56,7 +59,7 @@ func init() {
 	defer logger.Sync()
 
 	// Read CCADB All Certificate Information CSV file, if available.
-	ccadbCsvData, err := os.ReadFile(CCADB_CSV_FILENAME)
+	ccadbCsvData, err := f.ReadFile("data/" + CCADB_CSV_FILENAME)
 	if err != nil {
 		logger.Info(
 			"CSV file could not be read",

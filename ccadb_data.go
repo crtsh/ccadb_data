@@ -12,11 +12,11 @@ import (
 
 // Map of CA Certificate capabilities, indexed by SHA-256(Certificate).
 type caCertCapabilities struct {
-	certificateRecordType string
-	tlsCapable            bool
-	tlsEvCapable          bool
-	smimeCapable          bool
-	codeSigningCapable    bool
+	CertificateRecordType string
+	TlsCapable            bool
+	TlsEvCapable          bool
+	SmimeCapable          bool
+	CodeSigningCapable    bool
 }
 
 var caCertCapMap map[[sha256.Size]byte]*caCertCapabilities
@@ -137,11 +137,11 @@ func init() {
 
 		// Populate the map of CA certificate capabilities indexed by SHA-256 fingerprint.
 		ccc := caCertCapabilities{
-			certificateRecordType: line[csvIdx[IDX_CERTIFICATERECORDTYPE]],
-			tlsCapable:            line[csvIdx[IDX_TLSCAPABLE]] == "True",
-			tlsEvCapable:          line[csvIdx[IDX_TLSEVCAPABLE]] == "True",
-			smimeCapable:          line[csvIdx[IDX_SMIMECAPABLE]] == "True",
-			codeSigningCapable:    line[csvIdx[IDX_CODESIGNINGCAPABLE]] == "True",
+			CertificateRecordType: line[csvIdx[IDX_CERTIFICATERECORDTYPE]],
+			TlsCapable:            line[csvIdx[IDX_TLSCAPABLE]] == "True",
+			TlsEvCapable:          line[csvIdx[IDX_TLSEVCAPABLE]] == "True",
+			SmimeCapable:          line[csvIdx[IDX_SMIMECAPABLE]] == "True",
+			CodeSigningCapable:    line[csvIdx[IDX_CODESIGNINGCAPABLE]] == "True",
 		}
 		sha256Slice, err := hex.DecodeString(line[csvIdx[IDX_SHA256FINGERPRINT]])
 		if err != nil {
@@ -159,20 +159,20 @@ func init() {
 		keyIdentifier := line[csvIdx[IDX_SUBJECTKEYIDENTIFIER]]
 		if ic := issuerCapMap[keyIdentifier]; ic != nil {
 			// Multiple CA certificates share this key identifier, so merge the capabilities.
-			if ccc.certificateRecordType == CCADB_RECORD_ROOT {
-				ic.certificateRecordType = CCADB_RECORD_ROOT
+			if ccc.CertificateRecordType == CCADB_RECORD_ROOT {
+				ic.CertificateRecordType = CCADB_RECORD_ROOT
 			}
-			if ccc.tlsCapable {
-				ic.tlsCapable = true
+			if ccc.TlsCapable {
+				ic.TlsCapable = true
 			}
-			if ccc.tlsEvCapable {
-				ic.tlsEvCapable = true
+			if ccc.TlsEvCapable {
+				ic.TlsEvCapable = true
 			}
-			if ccc.smimeCapable {
-				ic.smimeCapable = true
+			if ccc.SmimeCapable {
+				ic.SmimeCapable = true
 			}
-			if ccc.codeSigningCapable {
-				ic.codeSigningCapable = true
+			if ccc.CodeSigningCapable {
+				ic.CodeSigningCapable = true
 			}
 		} else {
 			issuerCapMap[line[csvIdx[IDX_SUBJECTKEYIDENTIFIER]]] = &issuerCapabilities{

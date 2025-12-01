@@ -1,11 +1,11 @@
 package main
 
 import (
+	"crypto/sha256"
 	"crypto/x509"
 	"embed"
 	"encoding/base64"
 	"encoding/csv"
-	"encoding/hex"
 	"encoding/pem"
 	"fmt"
 	"strings"
@@ -18,7 +18,7 @@ func main() {
 	if dirEntry, err := files.ReadDir("data"); err != nil {
 		panic(err)
 	} else {
-		fmt.Printf("Subject Key Identifier,Subject Public Key Info\n")
+		fmt.Printf("Subject Key Identifier,SHA-256(Subject Public Key Info)\n")
 		for _, entry := range dirEntry {
 			var data []byte
 			if data, err = files.ReadFile("data/" + entry.Name()); err != nil {
@@ -39,8 +39,9 @@ func main() {
 				var cert *x509.Certificate
 				if block, _ := pem.Decode([]byte(record[1])); block == nil {
 					panic(fmt.Errorf("Failed to decode PEM block from Certificate"))
-				} else if cert, err = x509.ParseCertificate(block.Bytes); err == nil {
-					fmt.Printf("%s,%s\n", hex.EncodeToString(cert.SubjectKeyId), base64.StdEncoding.EncodeToString(cert.RawSubjectPublicKeyInfo))
+				} else if cert, err = x509.ParseCertificate(block.Bytes); err == nil && cert.SubjectKeyId != nil {
+					spkiSHA256 := sha256.Sum256(cert.RawSubjectPublicKeyInfo)
+					fmt.Printf("%s,%s\n", base64.StdEncoding.EncodeToString(cert.SubjectKeyId), base64.StdEncoding.EncodeToString(spkiSHA256[:]))
 				}
 			}
 		}

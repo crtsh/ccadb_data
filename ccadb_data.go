@@ -11,7 +11,7 @@ import (
 	"go.uber.org/zap"
 )
 
-//go:embed data/AllCertificateRecordsCSVFormatv4
+//go:embed data/*
 var f embed.FS
 
 // Map of CA Certificate capabilities, indexed by SHA-256(Certificate).

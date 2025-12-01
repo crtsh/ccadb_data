@@ -1,3 +1,3 @@
 #!/bin/bash
 
-go run main.go | sort | uniq > ../../data/ski_spki256.csv
+go run main.go | sort | uniq > ../../data/ski_spkisha256.csv

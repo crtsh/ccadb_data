@@ -3,6 +3,7 @@ package ccadb_data
 import (
 	"crypto/sha256"
 	"embed"
+	"encoding/base64"
 	"encoding/csv"
 	"encoding/hex"
 	"strings"
@@ -22,19 +23,23 @@ type caCertCapabilities struct {
 	CodeSigningCapable    bool
 }
 
-var caCertCapMap map[[sha256.Size]byte]*caCertCapabilities
+var caCertCapabilitiesMap map[[sha256.Size]byte]*caCertCapabilities
 
 // Map of Issuer capabilities, indexed by Base64(Key Identifier).
 type issuerCapabilities struct {
 	caCertCapabilities
 }
 
-var issuerCapMap map[string]*issuerCapabilities
+var issuerCapabilitiesMap map[string]*issuerCapabilities
+
+// Map of Issuer SPKI SHA-256 hashes, indexed by Base64(Key Identifier).
+var issuerSPKISHA256Map map[string][32]byte
 
 const (
-	CCADB_CSV_FILENAME        = "AllCertificateRecordsCSVFormatv4"
+	CCADB_CSV_PATH            = "data/AllCertificateRecordsCSVFormatv4"
 	CCADB_RECORD_ROOT         = "Root Certificate"
 	CCADB_RECORD_INTERMEDIATE = "Intermediate Certificate"
+	SKI_SPKISHA256_PATH       = "data/ski_spkisha256.csv"
 )
 
 const (
@@ -48,23 +53,37 @@ const (
 	MAX_IDX
 )
 
+var logger *zap.Logger
+
 func init() {
 	// Configure logger.
+	var err error
 	cfg := zap.NewProductionConfig() // "info" and above; JSON output.
 	cfg.DisableCaller = true
-	logger, err := cfg.Build()
+	logger, err = cfg.Build()
 	if err != nil {
 		panic("Logger could not be initialized: " + err.Error())
 	}
 	defer logger.Sync()
 
-	// Read CCADB All Certificate Information CSV file, if available.
-	ccadbCsvData, err := f.ReadFile("data/" + CCADB_CSV_FILENAME)
+	// Initialize maps.
+	caCertCapabilitiesMap = make(map[[sha256.Size]byte]*caCertCapabilities)
+	issuerCapabilitiesMap = make(map[string]*issuerCapabilities)
+	issuerSPKISHA256Map = make(map[string][32]byte)
+
+	// Read CSV data.
+	readAllCertificateRecordsCSV()
+	readIssuerSPKIHashCSV()
+}
+
+func readAllCertificateRecordsCSV() {
+	// Read CCADB All Certificate Information CSV file.
+	ccadbCsvData, err := f.ReadFile(CCADB_CSV_PATH)
 	if err != nil {
 		logger.Info(
 			"CSV file could not be read",
 			zap.Error(err),
-			zap.String("csv_filename", CCADB_CSV_FILENAME),
+			zap.String("file_path", CCADB_CSV_PATH),
 		)
 		return
 	}
@@ -80,13 +99,13 @@ func init() {
 		logger.Error(
 			"CSV file could not be parsed",
 			zap.Error(err),
-			zap.String("csv_filename", CCADB_CSV_FILENAME),
+			zap.String("file_path", CCADB_CSV_PATH),
 		)
 		return
 	} else if len(records) == 0 {
 		logger.Error(
 			"CSV file is empty",
-			zap.String("csv_filename", CCADB_CSV_FILENAME),
+			zap.String("file_path", CCADB_CSV_PATH),
 		)
 		return
 	}
@@ -121,15 +140,13 @@ func init() {
 		if v == 0 {
 			logger.Error(
 				"CSV data is missing one or more expected headers",
-				zap.String("csv_filename", CCADB_CSV_FILENAME),
+				zap.String("file_path", CCADB_CSV_PATH),
 			)
 			return
 		}
 	}
 
-	// Create maps of CA certificate capabilities.
-	caCertCapMap = make(map[[sha256.Size]byte]*caCertCapabilities)
-	issuerCapMap = make(map[string]*issuerCapabilities)
+	// Process CSV data.
 	for _, line := range records[1:] {
 		if len(line) <= greatestIdx {
 			logger.Warn(
@@ -156,11 +173,11 @@ func init() {
 		}
 		var sha256Array [sha256.Size]byte
 		copy(sha256Array[:], sha256Slice)
-		caCertCapMap[sha256Array] = &ccc
+		caCertCapabilitiesMap[sha256Array] = &ccc
 
 		// Populate/update the map of CA certificate capabilities indexed by key identifier.
 		keyIdentifier := line[csvIdx[IDX_SUBJECTKEYIDENTIFIER]]
-		if ic := issuerCapMap[keyIdentifier]; ic != nil {
+		if ic := issuerCapabilitiesMap[keyIdentifier]; ic != nil {
 			// Multiple CA certificates share this key identifier, so merge the capabilities.
 			if ccc.CertificateRecordType == CCADB_RECORD_ROOT {
 				ic.CertificateRecordType = CCADB_RECORD_ROOT
@@ -178,17 +195,78 @@ func init() {
 				ic.CodeSigningCapable = true
 			}
 		} else {
-			issuerCapMap[line[csvIdx[IDX_SUBJECTKEYIDENTIFIER]]] = &issuerCapabilities{
+			issuerCapabilitiesMap[line[csvIdx[IDX_SUBJECTKEYIDENTIFIER]]] = &issuerCapabilities{
 				caCertCapabilities: ccc,
 			}
 		}
 	}
 }
 
+func readIssuerSPKIHashCSV() {
+	// Read SKI -> SHA-256(SPKI) CSV file.
+	skiSpkiCsvData, err := f.ReadFile(SKI_SPKISHA256_PATH)
+	if err != nil {
+		logger.Info(
+			"CSV file could not be read",
+			zap.Error(err),
+			zap.String("file_path", SKI_SPKISHA256_PATH),
+		)
+		return
+	}
+
+	// Parse CSV data.
+	reader := csv.NewReader(strings.NewReader(string(skiSpkiCsvData)))
+	reader.FieldsPerRecord = 2
+	reader.ReuseRecord = true
+	records, err := reader.ReadAll()
+	if err != nil {
+		logger.Error(
+			"CSV file could not be parsed",
+			zap.Error(err),
+			zap.String("file_path", SKI_SPKISHA256_PATH),
+		)
+		return
+	} else if len(records) == 0 {
+		logger.Error(
+			"CSV file is empty",
+			zap.String("file_path", SKI_SPKISHA256_PATH),
+		)
+		return
+	}
+
+	// Process CSV data.
+	for _, line := range records[1:] {
+		// Decode Base64-encoded SHA-256(SPKI).
+		decoded, err := base64.StdEncoding.DecodeString(line[1])
+		if err != nil {
+			logger.Warn(
+				"CSV data contains an invalid Base64 string",
+				zap.String("value", line[1]),
+			)
+			continue
+		} else if len(decoded) != sha256.Size {
+			logger.Warn(
+				"CSV data contains a Base64 string with an invalid length",
+				zap.String("value", line[1]),
+			)
+			continue
+		}
+
+		var spkiSHA256 [sha256.Size]byte
+		copy(spkiSHA256[:], decoded)
+		issuerSPKISHA256Map[line[0]] = spkiSHA256
+	}
+}
+
 func GetCACertCapabilitiesBySHA256(sha256Fingerprint [sha256.Size]byte) *caCertCapabilities {
-	return caCertCapMap[sha256Fingerprint]
+	return caCertCapabilitiesMap[sha256Fingerprint]
 }
 
 func GetIssuerCapabilitiesByKeyIdentifier(b64KeyIdentifier string) *issuerCapabilities {
-	return issuerCapMap[b64KeyIdentifier]
+	return issuerCapabilitiesMap[b64KeyIdentifier]
+}
+
+func GetIssuerSPKISHA256ByKeyIdentifier(b64KeyIdentifier string) ([32]byte, bool) {
+	issuerSPKI, ok := issuerSPKISHA256Map[b64KeyIdentifier]
+	return issuerSPKI, ok
 }

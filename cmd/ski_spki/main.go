@@ -18,7 +18,6 @@ func main() {
 	if dirEntry, err := files.ReadDir("data"); err != nil {
 		panic(err)
 	} else {
-		fmt.Printf("Subject Key Identifier,SHA-256(Subject Public Key Info)\n")
 		for _, entry := range dirEntry {
 			var data []byte
 			if data, err = files.ReadFile("data/" + entry.Name()); err != nil {

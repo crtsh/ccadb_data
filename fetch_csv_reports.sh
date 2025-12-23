@@ -15,3 +15,7 @@ mkdir -p data
 mv $TMPDIR/AllCertificateRecordsCSVFormatv4 $CURDIR/data
 mv $TMPDIR/* $CURDIR/cmd/ski_spki/data
 rmdir $TMPDIR
+
+cd cmd/ski_spki
+./gen_ski_spki_csv.sh
+cd $CURDIR

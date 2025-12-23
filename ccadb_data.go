@@ -73,7 +73,7 @@ func init() {
 
 	// Read CSV data.
 	readAllCertificateRecordsCSV()
-	readIssuerSPKIHashCSV()
+	readSKIAndSHA256HashCSV(issuerSPKISHA256Map, SKI_SPKISHA256_PATH)
 }
 
 func readAllCertificateRecordsCSV() {
@@ -202,20 +202,20 @@ func readAllCertificateRecordsCSV() {
 	}
 }
 
-func readIssuerSPKIHashCSV() {
-	// Read SKI -> SHA-256(SPKI) CSV file.
-	skiSpkiCsvData, err := f.ReadFile(SKI_SPKISHA256_PATH)
+func readSKIAndSHA256HashCSV(skiAndSHA256HashMap map[string][32]byte, filePath string) {
+	// Read "SKI, SHA-256(Object)" CSV file.
+	skiAndSHA256HashCsvData, err := f.ReadFile(filePath)
 	if err != nil {
 		logger.Info(
 			"CSV file could not be read",
 			zap.Error(err),
-			zap.String("file_path", SKI_SPKISHA256_PATH),
+			zap.String("file_path", filePath),
 		)
 		return
 	}
 
 	// Parse CSV data.
-	reader := csv.NewReader(strings.NewReader(string(skiSpkiCsvData)))
+	reader := csv.NewReader(strings.NewReader(string(skiAndSHA256HashCsvData)))
 	reader.FieldsPerRecord = 2
 	reader.ReuseRecord = true
 	records, err := reader.ReadAll()
@@ -223,20 +223,20 @@ func readIssuerSPKIHashCSV() {
 		logger.Error(
 			"CSV file could not be parsed",
 			zap.Error(err),
-			zap.String("file_path", SKI_SPKISHA256_PATH),
+			zap.String("file_path", filePath),
 		)
 		return
 	} else if len(records) == 0 {
 		logger.Error(
 			"CSV file is empty",
-			zap.String("file_path", SKI_SPKISHA256_PATH),
+			zap.String("file_path", filePath),
 		)
 		return
 	}
 
 	// Process CSV data.
 	for _, line := range records[1:] {
-		// Decode Base64-encoded SHA-256(SPKI).
+		// Decode Base64-encoded SHA-256 hashes.
 		decoded, err := base64.StdEncoding.DecodeString(line[1])
 		if err != nil {
 			logger.Warn(
@@ -252,9 +252,9 @@ func readIssuerSPKIHashCSV() {
 			continue
 		}
 
-		var spkiSHA256 [sha256.Size]byte
-		copy(spkiSHA256[:], decoded)
-		issuerSPKISHA256Map[line[0]] = spkiSHA256
+		var sha256Hash [sha256.Size]byte
+		copy(sha256Hash[:], decoded)
+		skiAndSHA256HashMap[line[0]] = sha256Hash
 	}
 }
 
@@ -267,6 +267,6 @@ func GetIssuerCapabilitiesByKeyIdentifier(b64KeyIdentifier string) *issuerCapabi
 }
 
 func GetIssuerSPKISHA256ByKeyIdentifier(b64KeyIdentifier string) ([32]byte, bool) {
-	issuerSPKI, ok := issuerSPKISHA256Map[b64KeyIdentifier]
-	return issuerSPKI, ok
+	issuerSPKISHA256, ok := issuerSPKISHA256Map[b64KeyIdentifier]
+	return issuerSPKISHA256, ok
 }

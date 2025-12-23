@@ -8,6 +8,7 @@ import (
 	"encoding/csv"
 	"encoding/pem"
 	"fmt"
+	"os"
 	"strings"
 )
 
@@ -15,6 +16,11 @@ import (
 var files embed.FS
 
 func main() {
+	if len(os.Args) != 2 || os.Args[1] != "spki" {
+		fmt.Fprintf(os.Stderr, "Usage: %s <spki>\n", os.Args[0])
+		os.Exit(1)
+	}
+
 	if dirEntry, err := files.ReadDir("data"); err != nil {
 		panic(err)
 	} else {
@@ -39,8 +45,12 @@ func main() {
 				if block, _ := pem.Decode([]byte(record[1])); block == nil {
 					panic(fmt.Errorf("Failed to decode PEM block from Certificate"))
 				} else if cert, err = x509.ParseCertificate(block.Bytes); err == nil && cert.SubjectKeyId != nil {
-					spkiSHA256 := sha256.Sum256(cert.RawSubjectPublicKeyInfo)
-					fmt.Printf("%s,%s\n", base64.StdEncoding.EncodeToString(cert.SubjectKeyId), base64.StdEncoding.EncodeToString(spkiSHA256[:]))
+					var sha256Hash [32]byte
+					switch os.Args[1] {
+					case "spki":
+						sha256Hash = sha256.Sum256(cert.RawSubjectPublicKeyInfo)
+					}
+					fmt.Printf("%s,%s\n", base64.StdEncoding.EncodeToString(cert.SubjectKeyId), base64.StdEncoding.EncodeToString(sha256Hash[:]))
 				}
 			}
 		}

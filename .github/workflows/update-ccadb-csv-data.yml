@@ -1,0 +1,77 @@
+name: Scheduled commit/release on CCADB CSV data update
+
+permissions:
+  contents: write
+  pull-requests: write
+
+on:
+  schedule:
+    # Run Hourly
+    - cron: '0 * * * *'
+  workflow_dispatch:
+
+jobs:
+  check_release:
+    runs-on: ubuntu-latest
+    name: Hourly check for CCADB CSV data updates
+
+    outputs:
+      tag: ${{ steps.tag.outputs.tag }}
+
+    steps:
+    - name: Install dependencies
+      run: |
+          sudo apt install -y csvkit
+
+    - name: Checkout this repo
+      uses: actions/checkout@v6
+
+    - name: Setup git
+      run: |
+          git config --global user.email "gh@crt.sh"
+          git config --global user.name "ccadb_data"
+
+    - name: Fetch all branches
+      run: git fetch origin
+
+    - name: Run fetch_csv_reports.sh
+      run: chmod +x fetch_csv_reports.sh; ./fetch_csv_reports.sh
+
+    - name: Check for changes to the CCADB CSV data
+      run: |
+        git fetch origin main
+        if [[ $(git diff) ]]; then
+          echo "Commit needed: CCADB data updated."
+          echo "commit_needed=true" >> $GITHUB_ENV
+          echo "commit_message=CCADB data updated" >> $GITHUB_ENV
+        else
+          echo "No CCADB data updated."
+          echo "commit_needed=false" >> $GITHUB_ENV
+        fi
+        if [[ $(git diff -U0 "cmd/ski_spki/data/*" | grep "^\+" | grep "BEGIN CERTIFICATE") ]]; then
+          echo "Release needed: One or more CCADB records created."
+          echo "release_needed=true" >> $GITHUB_ENV
+          echo "commit_message=One or more CCADB records created" >> $GITHUB_ENV
+        else
+          echo "No CCADB records created."
+          echo "release_needed=false" >> $GITHUB_ENV
+        fi
+
+    - name: Commit changes
+      if: env.commit_needed == 'true'
+      uses: stefanzweifel/git-auto-commit-action@v7
+      with:
+        commit_message: ${{ env.commit_message }}
+
+    - name: Set tag name
+      id: tag
+      run: |
+        tag=$(date +%Y%m%d%H%M%S)
+        echo "tag=$tag" >> $GITHUB_OUTPUT
+
+    - name: Create and publish release
+      if: env.release_needed == 'true'
+      env:
+        GH_TOKEN: ${{ github.token }}
+        GH_REPO: ${{ github.repository }}
+      run: gh release create "${{ steps.tag.outputs.tag }}" --draft=false

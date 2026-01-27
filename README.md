@@ -19,3 +19,9 @@ The latest versions of the upstream CSV reports are fetched hourly by a GitHub A
 The parsing library currently provides functions that assist [ctlint](https://github.com/crtsh/ctlint) with verifying CT SCTs and [pkimetal](https://github.com/pkimetal/pkimetal) with detecting certificate profiles.
 
 For documentation, see [here](https://pkg.go.dev/github.com/crtsh/ccadb_data).
+
+## Command-line Tools
+
+- The [ski_spki](cmd/ski_spki) tool produces [ski_spkisha256.csv](data/ski_spkisha256.csv), which maps Subject Key Identifiers to the corresponding SHA-256(SubjectPublicKeyInfo) hashes needed for verifying CT SCTs.
+
+- The [url_check](cmd/url_check) tool performs a basic liveness check on URLs found in [AllCertificateRecordsCSVFormatv4](data/AllCertificateRecordsCSVFormatv4).

@@ -21,6 +21,7 @@ type caCertCapabilities struct {
 	TlsEvCapable          bool
 	SmimeCapable          bool
 	CodeSigningCapable    bool
+	HasVMCAudit           bool
 }
 
 var caCertCapabilitiesMap map[[sha256.Size]byte]*caCertCapabilities
@@ -50,6 +51,7 @@ const (
 	IDX_TLSEVCAPABLE
 	IDX_SMIMECAPABLE
 	IDX_CODESIGNINGCAPABLE
+	IDX_VMCAUDITSTATEMENTDATE
 	MAX_IDX
 )
 
@@ -129,6 +131,8 @@ func readAllCertificateRecordsCSV() {
 			csvIdx[IDX_SMIMECAPABLE] = i
 		case "Code Signing Capable":
 			csvIdx[IDX_CODESIGNINGCAPABLE] = i
+		case "VMC Audit Statement Date":
+			csvIdx[IDX_VMCAUDITSTATEMENTDATE] = i
 		default:
 			continue
 		}
@@ -162,6 +166,7 @@ func readAllCertificateRecordsCSV() {
 			TlsEvCapable:          line[csvIdx[IDX_TLSEVCAPABLE]] == "True",
 			SmimeCapable:          line[csvIdx[IDX_SMIMECAPABLE]] == "True",
 			CodeSigningCapable:    line[csvIdx[IDX_CODESIGNINGCAPABLE]] == "True",
+			HasVMCAudit:           line[csvIdx[IDX_VMCAUDITSTATEMENTDATE]] != "",
 		}
 		sha256Slice, err := hex.DecodeString(line[csvIdx[IDX_SHA256FINGERPRINT]])
 		if err != nil {
@@ -193,6 +198,9 @@ func readAllCertificateRecordsCSV() {
 			}
 			if ccc.CodeSigningCapable {
 				ic.CodeSigningCapable = true
+			}
+			if ccc.HasVMCAudit {
+				ic.HasVMCAudit = true
 			}
 		} else {
 			issuerCapabilitiesMap[line[csvIdx[IDX_SUBJECTKEYIDENTIFIER]]] = &issuerCapabilities{

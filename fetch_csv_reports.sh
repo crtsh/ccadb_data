@@ -9,7 +9,7 @@ if [ -s AllCertificateRecordsCSVFormatv4 ]; then
   wget -nv https://ccadb.my.salesforce-sites.com/ccadb/AllCertificateRecordsCSVFormatV4b
   if [ -s AllCertificateRecordsCSVFormatV4b ]; then
     sed -i -e '$a\' AllCertificateRecordsCSVFormatv4
-    tail -n=+1 AllCertificateRecordsCSVFormatV4b >> AllCertificateRecordsCSVFormatv4
+    tail -n +1 AllCertificateRecordsCSVFormatV4b >> AllCertificateRecordsCSVFormatv4
     csvsort AllCertificateRecordsCSVFormatv4 > AllCertificateRecordsCSVFormatv4.sorted
     mv AllCertificateRecordsCSVFormatv4.sorted AllCertificateRecordsCSVFormatv4
   fi

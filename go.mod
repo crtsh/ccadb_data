@@ -4,7 +4,7 @@ go 1.25.0
 
 require (
 	github.com/hueristiq/hq-go-url v0.0.0-20251117030909-afc6001dd8c9
-	go.uber.org/zap v1.27.1
+	go.uber.org/zap v1.28.0
 )
 
 require (

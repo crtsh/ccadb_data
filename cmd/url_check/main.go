@@ -30,7 +30,7 @@ func main() {
 	switch len(os.Args) {
 	case 2, 3:
 	default:
-		fmt.Fprintf(os.Stderr, "Usage: %s <AllCertificateRecordsCSVFormatv4> [CA Owner]\n", os.Args[0])
+		fmt.Fprintf(os.Stderr, "Usage: %s <AllCertificateRecordsCSVFormatV5> [CA Owner]\n", os.Args[0])
 		os.Exit(1)
 	}
 

@@ -37,7 +37,7 @@ var issuerCapabilitiesMap map[string]*issuerCapabilities
 var issuerSPKISHA256Map map[string][32]byte
 
 const (
-	CCADB_CSV_PATH            = "data/AllCertificateRecordsCSVFormatv4"
+	CCADB_CSV_PATH            = "data/AllCertificateRecordsCSVFormatV5"
 	CCADB_RECORD_ROOT         = "Root Certificate"
 	CCADB_RECORD_INTERMEDIATE = "Intermediate Certificate"
 	SKI_SPKISHA256_PATH       = "data/ski_spkisha256.csv"

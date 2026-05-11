@@ -4,16 +4,10 @@ CURDIR=`pwd`
 TMPDIR=`mktemp -d`
 cd $TMPDIR
 
-wget -nv -O AllCertificateRecordsCSVFormatv4 https://ccadb.my.salesforce-sites.com/ccadb/AllCertificateRecordsCSVFormatV4a
-if [ -s AllCertificateRecordsCSVFormatv4 ]; then
-  wget -nv https://ccadb.my.salesforce-sites.com/ccadb/AllCertificateRecordsCSVFormatV4b
-  if [ -s AllCertificateRecordsCSVFormatV4b ]; then
-    sed -i -e '$a\' AllCertificateRecordsCSVFormatv4
-    tail -n +2 AllCertificateRecordsCSVFormatV4b >> AllCertificateRecordsCSVFormatv4
-    csvsort AllCertificateRecordsCSVFormatv4 > AllCertificateRecordsCSVFormatv4.sorted
-    mv AllCertificateRecordsCSVFormatv4.sorted AllCertificateRecordsCSVFormatv4
-  fi
-  rm -f AllCertificateRecordsCSVFormatV4b
+wget -nv -O AllCertificateRecordsCSVFormatV5 https://ccadb.my.salesforce-sites.com/ccadb/AllCertificateRecordsCSVFormatV5
+if [ -s AllCertificateRecordsCSVFormatV5 ]; then
+  csvsort AllCertificateRecordsCSVFormatV5 > AllCertificateRecordsCSVFormatV5.sorted
+  mv AllCertificateRecordsCSVFormatV5.sorted AllCertificateRecordsCSVFormatV5
 fi
 
 for i in $( seq 1994 `date +%Y` ); do
@@ -28,8 +22,8 @@ done
 
 cd $CURDIR
 mkdir -p data
-if [ -s $TMPDIR/AllCertificateRecordsCSVFormatv4 ]; then
-  mv $TMPDIR/AllCertificateRecordsCSVFormatv4 $CURDIR/data
+if [ -s $TMPDIR/AllCertificateRecordsCSVFormatV5 ]; then
+  mv $TMPDIR/AllCertificateRecordsCSVFormatV5 $CURDIR/data
 fi
 mv $TMPDIR/* $CURDIR/cmd/ski_spki/data
 rmdir $TMPDIR

@@ -8,7 +8,7 @@ The following CCADB CSV Reports are included in this repository:
 
 - `AllCertificatePEMsCSVFormat_NotBeforeYear_YYYY`, where YYYY is every year since 1994.
 
-- `AllCertificateRecordsCSVFormatv4`.
+- `AllCertificateRecordsCSVFormatV5`.
 
 ## Versioning
 
@@ -24,4 +24,4 @@ For documentation, see [here](https://pkg.go.dev/github.com/crtsh/ccadb_data).
 
 - The [ski_spki](cmd/ski_spki) tool produces [ski_spkisha256.csv](data/ski_spkisha256.csv), which maps Subject Key Identifiers to the corresponding SHA-256(SubjectPublicKeyInfo) hashes needed for verifying CT SCTs.
 
-- The [url_check](cmd/url_check) tool performs a basic liveness check on URLs found in [AllCertificateRecordsCSVFormatv4](data/AllCertificateRecordsCSVFormatv4).
+- The [url_check](cmd/url_check) tool performs a basic liveness check on URLs found in [AllCertificateRecordsCSVFormatV5](data/AllCertificateRecordsCSVFormatV5).

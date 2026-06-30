@@ -11,6 +11,7 @@ import (
 	"sync"
 
 	"go.uber.org/zap"
+	"go.uber.org/zap/zapcore"
 )
 
 //go:embed data/*
@@ -70,6 +71,11 @@ func init() {
 	var err error
 	cfg := zap.NewProductionConfig() // "info" and above; JSON output.
 	cfg.DisableCaller = true
+	// Configure timestamp format.
+	cfg.EncoderConfig.TimeKey = "@timestamp"
+	cfg.EncoderConfig.EncodeTime = zapcore.ISO8601TimeEncoder
+	cfg.EncoderConfig.EncodeDuration = zapcore.NanosDurationEncoder
+
 	logger, err = cfg.Build()
 	if err != nil {
 		panic("Logger could not be initialized: " + err.Error())

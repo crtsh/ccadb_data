@@ -16,9 +16,34 @@ The latest versions of the upstream CSV reports are fetched hourly by a GitHub A
 
 ## Parsing Library
 
-The parsing library currently provides functions that assist [ctlint](https://github.com/crtsh/ctlint) with verifying CT SCTs and [pkimetal](https://github.com/pkimetal/pkimetal) with detecting certificate profiles.
+The parsing library provides lookup functions that assist:
+- [ctlint](https://github.com/crtsh/ctlint) with verifying CT SCTs.
+- [ctsubmit](https://github.com/crtsh/ctsubmit) with automatic certificate chain discovery and issuer identification.
+- [pkimetal](https://github.com/pkimetal/pkimetal) with detecting certificate profiles.
 
-For documentation, see [here](https://pkg.go.dev/github.com/crtsh/ccadb_data).
+### API Functions
+
+#### `GetCACertCapabilitiesBySHA256(sha256Fingerprint [sha256.Size]byte) *caCertCapabilities`
+
+Returns the CCADB-reported capabilities for a CA certificate identified by its SHA-256 fingerprint. The returned struct includes `CertificateRecordType`, `TlsCapable`, `TlsEvCapable`, `SmimeCapable`, `CodeSigningCapable`, and `HasVMCAudit`.
+
+#### `LoadAllCACertificates()`
+
+Loads the DER-encoded bytes for all CA certificates from the embedded PEM CSV data files. Must be called before using `GetCACertificateBySHA256`.
+
+#### `GetCACertificateBySHA256(sha256Fingerprint [sha256.Size]byte) ([]byte, bool)`
+
+Returns the DER-encoded certificate bytes for the CA certificate identified by its SHA-256 fingerprint. Requires `LoadAllCACertificates` to have been called first. Used by ctsubmit for automatic certificate chain discovery.
+
+#### `GetIssuerCapabilitiesByKeyIdentifier(b64KeyIdentifier string) *issuerCapabilities`
+
+Returns the merged capabilities across all CA certificates that share the given Base64-encoded Subject Key Identifier.
+
+#### `GetIssuerSPKISHA256ByKeyIdentifier(b64KeyIdentifier string) ([sha256.Size]byte, bool)`
+
+Returns the SHA-256 hash of the SubjectPublicKeyInfo for the issuer identified by the given Base64-encoded Subject Key Identifier. Used by ctsubmit and ctlint to verify CT SCTs.
+
+For full documentation, see [here](https://pkg.go.dev/github.com/crtsh/ccadb_data).
 
 ## Command-line Tools
 

@@ -6,13 +6,18 @@ import (
 	"encoding/base64"
 	"encoding/csv"
 	"encoding/hex"
+	"encoding/pem"
 	"strings"
+	"sync"
 
 	"go.uber.org/zap"
 )
 
 //go:embed data/*
 var f embed.FS
+
+//go:embed cmd/ski_spki/data/*
+var pemFS embed.FS
 
 // Map of CA Certificate capabilities, indexed by SHA-256(Certificate).
 type caCertCapabilities struct {
@@ -34,7 +39,10 @@ type issuerCapabilities struct {
 var issuerCapabilitiesMap map[string]*issuerCapabilities
 
 // Map of Issuer SPKI SHA-256 hashes, indexed by Base64(Key Identifier).
-var issuerSPKISHA256Map map[string][32]byte
+var issuerSPKISHA256Map map[string][sha256.Size]byte
+
+// Map of certificate DER bytes, indexed by SHA-256(Certificate).
+var certificateDERMap map[[sha256.Size]byte][]byte
 
 const (
 	CCADB_CSV_PATH            = "data/AllCertificateRecordsCSVFormatV5"
@@ -71,7 +79,7 @@ func init() {
 	// Initialize maps.
 	caCertCapabilitiesMap = make(map[[sha256.Size]byte]*caCertCapabilities)
 	issuerCapabilitiesMap = make(map[string]*issuerCapabilities)
-	issuerSPKISHA256Map = make(map[string][32]byte)
+	issuerSPKISHA256Map = make(map[string][sha256.Size]byte)
 
 	// Read CSV data.
 	readAllCertificateRecordsCSV()
@@ -82,11 +90,7 @@ func readAllCertificateRecordsCSV() {
 	// Read CCADB All Certificate Information CSV file.
 	ccadbCsvData, err := f.ReadFile(CCADB_CSV_PATH)
 	if err != nil {
-		logger.Info(
-			"CSV file could not be read",
-			zap.Error(err),
-			zap.String("file_path", CCADB_CSV_PATH),
-		)
+		logger.Info("CSV file could not be read", zap.Error(err), zap.String("file_path", CCADB_CSV_PATH))
 		return
 	}
 
@@ -98,17 +102,10 @@ func readAllCertificateRecordsCSV() {
 	reader.ReuseRecord = true
 	records, err := reader.ReadAll()
 	if err != nil {
-		logger.Error(
-			"CSV file could not be parsed",
-			zap.Error(err),
-			zap.String("file_path", CCADB_CSV_PATH),
-		)
+		logger.Error("CSV file could not be parsed", zap.Error(err), zap.String("file_path", CCADB_CSV_PATH))
 		return
 	} else if len(records) == 0 {
-		logger.Error(
-			"CSV file is empty",
-			zap.String("file_path", CCADB_CSV_PATH),
-		)
+		logger.Error("CSV file is empty", zap.String("file_path", CCADB_CSV_PATH))
 		return
 	}
 
@@ -142,10 +139,7 @@ func readAllCertificateRecordsCSV() {
 	}
 	for _, v := range csvIdx {
 		if v == 0 {
-			logger.Error(
-				"CSV data is missing one or more expected headers",
-				zap.String("file_path", CCADB_CSV_PATH),
-			)
+			logger.Error("CSV data is missing one or more expected headers", zap.String("file_path", CCADB_CSV_PATH))
 			return
 		}
 	}
@@ -153,10 +147,7 @@ func readAllCertificateRecordsCSV() {
 	// Process CSV data.
 	for _, line := range records[1:] {
 		if len(line) <= greatestIdx {
-			logger.Warn(
-				"CSV data has a line that is missing one or more expected fields",
-				zap.String("line", strings.Join(line, ",")),
-			)
+			logger.Warn("CSV data has a line that is missing one or more expected fields", zap.String("line", strings.Join(line, ",")))
 		}
 
 		// Populate the map of CA certificate capabilities indexed by SHA-256 fingerprint.
@@ -170,10 +161,7 @@ func readAllCertificateRecordsCSV() {
 		}
 		sha256Slice, err := hex.DecodeString(line[csvIdx[IDX_SHA256FINGERPRINT]])
 		if err != nil {
-			logger.Warn(
-				"CSV data contains an invalid hex string",
-				zap.String("value", line[csvIdx[IDX_SHA256FINGERPRINT]]),
-			)
+			logger.Warn("CSV data contains an invalid hex string", zap.String("value", line[csvIdx[IDX_SHA256FINGERPRINT]]))
 			continue
 		}
 		var sha256Array [sha256.Size]byte
@@ -210,15 +198,11 @@ func readAllCertificateRecordsCSV() {
 	}
 }
 
-func readSKIAndSHA256HashCSV(skiAndSHA256HashMap map[string][32]byte, filePath string) {
+func readSKIAndSHA256HashCSV(skiAndSHA256HashMap map[string][sha256.Size]byte, filePath string) {
 	// Read "SKI, SHA-256(Object)" CSV file.
 	skiAndSHA256HashCsvData, err := f.ReadFile(filePath)
 	if err != nil {
-		logger.Info(
-			"CSV file could not be read",
-			zap.Error(err),
-			zap.String("file_path", filePath),
-		)
+		logger.Info("CSV file could not be read", zap.Error(err), zap.String("file_path", filePath))
 		return
 	}
 
@@ -228,17 +212,10 @@ func readSKIAndSHA256HashCSV(skiAndSHA256HashMap map[string][32]byte, filePath s
 	reader.ReuseRecord = true
 	records, err := reader.ReadAll()
 	if err != nil {
-		logger.Error(
-			"CSV file could not be parsed",
-			zap.Error(err),
-			zap.String("file_path", filePath),
-		)
+		logger.Error("CSV file could not be parsed", zap.Error(err), zap.String("file_path", filePath))
 		return
 	} else if len(records) == 0 {
-		logger.Error(
-			"CSV file is empty",
-			zap.String("file_path", filePath),
-		)
+		logger.Error("CSV file is empty", zap.String("file_path", filePath))
 		return
 	}
 
@@ -247,16 +224,10 @@ func readSKIAndSHA256HashCSV(skiAndSHA256HashMap map[string][32]byte, filePath s
 		// Decode Base64-encoded SHA-256 hashes.
 		decoded, err := base64.StdEncoding.DecodeString(line[1])
 		if err != nil {
-			logger.Warn(
-				"CSV data contains an invalid Base64 string",
-				zap.String("value", line[1]),
-			)
+			logger.Warn("CSV data contains an invalid Base64 string", zap.String("value", line[1]))
 			continue
 		} else if len(decoded) != sha256.Size {
-			logger.Warn(
-				"CSV data contains a Base64 string with an invalid length",
-				zap.String("value", line[1]),
-			)
+			logger.Warn("CSV data contains a Base64 string with an invalid length", zap.String("value", line[1]))
 			continue
 		}
 
@@ -266,15 +237,57 @@ func readSKIAndSHA256HashCSV(skiAndSHA256HashMap map[string][32]byte, filePath s
 	}
 }
 
-func GetCACertCapabilitiesBySHA256(sha256Fingerprint [sha256.Size]byte) *caCertCapabilities {
-	return caCertCapabilitiesMap[sha256Fingerprint]
-}
+var readAllCACertificatePEMsCSVOnce sync.Once
 
-func GetIssuerCapabilitiesByKeyIdentifier(b64KeyIdentifier string) *issuerCapabilities {
-	return issuerCapabilitiesMap[b64KeyIdentifier]
-}
+func readAllCACertificatePEMsCSV() {
+	certificateDERMap = make(map[[sha256.Size]byte][]byte)
+	entries, err := pemFS.ReadDir("cmd/ski_spki/data")
+	if err != nil {
+		logger.Info("PEM data directory could not be read", zap.Error(err))
+		return
+	}
 
-func GetIssuerSPKISHA256ByKeyIdentifier(b64KeyIdentifier string) ([32]byte, bool) {
-	issuerSPKISHA256, ok := issuerSPKISHA256Map[b64KeyIdentifier]
-	return issuerSPKISHA256, ok
+	for _, entry := range entries {
+		if entry.IsDir() {
+			continue
+		}
+		filePath := "cmd/ski_spki/data/" + entry.Name()
+		data, err := pemFS.ReadFile(filePath)
+		if err != nil {
+			logger.Warn("PEM CSV file could not be read", zap.Error(err), zap.String("file_path", filePath))
+			continue
+		}
+
+		reader := csv.NewReader(strings.NewReader(string(data)))
+		reader.FieldsPerRecord = 2
+		reader.LazyQuotes = true
+		reader.TrimLeadingSpace = true
+		reader.ReuseRecord = true
+		records, err := reader.ReadAll()
+		if err != nil {
+			logger.Warn("PEM CSV file could not be parsed", zap.Error(err), zap.String("file_path", filePath))
+			continue
+		}
+
+		for _, record := range records[1:] {
+			sha256Slice, err := hex.DecodeString(record[0])
+			if err != nil || len(sha256Slice) != sha256.Size {
+				continue
+			}
+			var sha256Array [sha256.Size]byte
+			copy(sha256Array[:], sha256Slice)
+
+			if _, exists := certificateDERMap[sha256Array]; exists {
+				continue
+			}
+
+			block, _ := pem.Decode([]byte(record[1]))
+			if block == nil {
+				continue
+			}
+			certificateDERMap[sha256Array] = block.Bytes
+		}
+	}
+
+	logger.Info("Loaded certificate DER data", zap.Int("count", len(certificateDERMap)))
 }

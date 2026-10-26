@@ -1,4 +1,4 @@
-# ccadb_data [![Go Report](https://goreportcard.com/badge/github.com/crtsh/ccadb_data)](https://goreportcard.com/report/github.com/crtsh/ccadb_data)
+# ccadb_data [![CI](https://github.com/crtsh/ccadb_data/actions/workflows/ci.yml/badge.svg)](https://github.com/crtsh/ccadb_data/actions/workflows/ci.yml) [![OpenSSF Scorecard](https://api.securityscorecards.dev/projects/github.com/crtsh/ccadb_data/badge)](https://securityscorecards.dev/viewer/?uri=github.com/crtsh/ccadb_data) [![License: GPL v3](https://img.shields.io/badge/License-GPLv3-blue.svg)](LICENSE) [![Release](https://img.shields.io/github/v/release/crtsh/ccadb_data)](https://github.com/crtsh/ccadb_data/releases) [![Go Version](https://img.shields.io/github/go-mod/go-version/crtsh/ccadb_data)](go.mod)
 
 CCADB CSV report archive and Go parsing library.
 

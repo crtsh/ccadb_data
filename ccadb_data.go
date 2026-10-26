@@ -7,6 +7,7 @@ import (
 	"encoding/csv"
 	"encoding/hex"
 	"encoding/pem"
+	"io/fs"
 	"strings"
 	"sync"
 
@@ -99,7 +100,10 @@ func readAllCertificateRecordsCSV() {
 		logger.Info("CSV file could not be read", zap.Error(err), zap.String("file_path", CCADB_CSV_PATH))
 		return
 	}
+	parseCertificateRecordsCSV(ccadbCsvData, caCertCapabilitiesMap, issuerCapabilitiesMap)
+}
 
+func parseCertificateRecordsCSV(ccadbCsvData []byte, certificateCapabilitiesMap map[[sha256.Size]byte]*caCertCapabilities, issuerCapabilitiesMap map[string]*issuerCapabilities) {
 	// Parse CSV data.
 	reader := csv.NewReader(strings.NewReader(string(ccadbCsvData)))
 	reader.FieldsPerRecord = -1
@@ -154,6 +158,7 @@ func readAllCertificateRecordsCSV() {
 	for _, line := range records[1:] {
 		if len(line) <= greatestIdx {
 			logger.Warn("CSV data has a line that is missing one or more expected fields", zap.String("line", strings.Join(line, ",")))
+			continue
 		}
 
 		// Populate the map of CA certificate capabilities indexed by SHA-256 fingerprint.
@@ -166,13 +171,13 @@ func readAllCertificateRecordsCSV() {
 			HasVMCAudit:           line[csvIdx[IDX_VMCAUDITSTATEMENTDATE]] != "",
 		}
 		sha256Slice, err := hex.DecodeString(line[csvIdx[IDX_SHA256FINGERPRINT]])
-		if err != nil {
+		if err != nil || len(sha256Slice) != sha256.Size {
 			logger.Warn("CSV data contains an invalid hex string", zap.String("value", line[csvIdx[IDX_SHA256FINGERPRINT]]))
 			continue
 		}
 		var sha256Array [sha256.Size]byte
 		copy(sha256Array[:], sha256Slice)
-		caCertCapabilitiesMap[sha256Array] = &ccc
+		certificateCapabilitiesMap[sha256Array] = &ccc
 
 		// Populate/update the map of CA certificate capabilities indexed by key identifier.
 		keyIdentifier := line[csvIdx[IDX_SUBJECTKEYIDENTIFIER]]
@@ -211,17 +216,20 @@ func readSKIAndSHA256HashCSV(skiAndSHA256HashMap map[string][sha256.Size]byte, f
 		logger.Info("CSV file could not be read", zap.Error(err), zap.String("file_path", filePath))
 		return
 	}
+	parseSKIAndSHA256HashCSV(skiAndSHA256HashCsvData, skiAndSHA256HashMap)
+}
 
+func parseSKIAndSHA256HashCSV(skiAndSHA256HashCsvData []byte, skiAndSHA256HashMap map[string][sha256.Size]byte) {
 	// Parse CSV data.
 	reader := csv.NewReader(strings.NewReader(string(skiAndSHA256HashCsvData)))
 	reader.FieldsPerRecord = 2
 	reader.ReuseRecord = true
 	records, err := reader.ReadAll()
 	if err != nil {
-		logger.Error("CSV file could not be parsed", zap.Error(err), zap.String("file_path", filePath))
+		logger.Error("CSV file could not be parsed", zap.Error(err))
 		return
 	} else if len(records) == 0 {
-		logger.Error("CSV file is empty", zap.String("file_path", filePath))
+		logger.Error("CSV file is empty")
 		return
 	}
 
@@ -246,11 +254,15 @@ func readSKIAndSHA256HashCSV(skiAndSHA256HashMap map[string][sha256.Size]byte, f
 var readAllCACertificatePEMsCSVOnce sync.Once
 
 func readAllCACertificatePEMsCSV() {
-	certificateDERMap = make(map[[sha256.Size]byte][]byte)
-	entries, err := pemFS.ReadDir("cmd/ski_spki/data")
+	certificateDERMap = loadCACertificates(pemFS)
+}
+
+func loadCACertificates(filesystem fs.FS) map[[sha256.Size]byte][]byte {
+	certificates := make(map[[sha256.Size]byte][]byte)
+	entries, err := fs.ReadDir(filesystem, "cmd/ski_spki/data")
 	if err != nil {
 		logger.Info("PEM data directory could not be read", zap.Error(err))
-		return
+		return certificates
 	}
 
 	for _, entry := range entries {
@@ -258,7 +270,7 @@ func readAllCACertificatePEMsCSV() {
 			continue
 		}
 		filePath := "cmd/ski_spki/data/" + entry.Name()
-		data, err := pemFS.ReadFile(filePath)
+		data, err := fs.ReadFile(filesystem, filePath)
 		if err != nil {
 			logger.Warn("PEM CSV file could not be read", zap.Error(err), zap.String("file_path", filePath))
 			continue
@@ -283,7 +295,7 @@ func readAllCACertificatePEMsCSV() {
 			var sha256Array [sha256.Size]byte
 			copy(sha256Array[:], sha256Slice)
 
-			if _, exists := certificateDERMap[sha256Array]; exists {
+			if _, exists := certificates[sha256Array]; exists {
 				continue
 			}
 
@@ -291,9 +303,10 @@ func readAllCACertificatePEMsCSV() {
 			if block == nil {
 				continue
 			}
-			certificateDERMap[sha256Array] = block.Bytes
+			certificates[sha256Array] = block.Bytes
 		}
 	}
 
-	logger.Info("Loaded certificate DER data", zap.Int("count", len(certificateDERMap)))
+	logger.Info("Loaded certificate DER data", zap.Int("count", len(certificates)))
+	return certificates
 }

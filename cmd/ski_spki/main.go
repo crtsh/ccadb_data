@@ -43,7 +43,7 @@ func main() {
 			for _, record := range records[1:] {
 				var cert *x509.Certificate
 				if block, _ := pem.Decode([]byte(record[1])); block == nil {
-					panic(fmt.Errorf("Failed to decode PEM block from Certificate"))
+					panic(fmt.Errorf("failed to decode PEM block from certificate"))
 				} else if cert, err = x509.ParseCertificate(block.Bytes); err == nil && cert.SubjectKeyId != nil {
 					var sha256Hash [32]byte
 					switch os.Args[1] {

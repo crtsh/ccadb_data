@@ -131,7 +131,10 @@ func checkURL(result []string) {
 	}
 
 	csvWriter := csv.NewWriter(os.Stdout)
-	csvWriter.Write(result)
+	if err := csvWriter.Write(result); err != nil {
+		fmt.Fprintf(os.Stderr, "%v\n", err)
+		os.Exit(1)
+	}
 	if err = csvWriter.Error(); err != nil {
 		fmt.Fprintf(os.Stderr, "%v", err)
 		os.Exit(1)

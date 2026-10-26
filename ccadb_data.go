@@ -81,7 +81,6 @@ func init() {
 	if err != nil {
 		panic("Logger could not be initialized: " + err.Error())
 	}
-	defer logger.Sync()
 
 	// Initialize maps.
 	caCertCapabilitiesMap = make(map[[sha256.Size]byte]*caCertCapabilities)

@@ -11,7 +11,12 @@ import (
 	"sync"
 	"time"
 
-	"github.com/hueristiq/hq-go-url/extractor"
+	"github.com/hueristiq/hq-lib-url-go/extractor"
+)
+
+const (
+	maxConcurrentChecks = 20
+	maxConnsPerHost     = 4
 )
 
 var httpClient *http.Client
@@ -19,6 +24,7 @@ var httpClient *http.Client
 func main() {
 	httpClient = &http.Client{
 		Transport: &http.Transport{
+			MaxConnsPerHost: maxConnsPerHost,
 			TLSClientConfig: &tls.Config{
 				InsecureSkipVerify: true,
 			},
@@ -81,7 +87,11 @@ func main() {
 	// Parse the CSV data.
 	results := make(map[string][]string)
 	e := extractor.New(extractor.WithScheme())
-	regex := e.CompileRegex()
+	regex, err := e.CompileRegex()
+	if err != nil {
+		fmt.Fprintf(os.Stderr, "Error compiling URL regex: %v\n", err)
+		os.Exit(1)
+	}
 	for _, record := range records[1:] {
 		// Skip revoked certificates.
 		switch record[revocationStatusIdx] {
@@ -109,8 +119,13 @@ func main() {
 
 	// Wait for all URL checks to complete.
 	var wg sync.WaitGroup
+	checkSlots := make(chan struct{}, maxConcurrentChecks)
 	for url, result := range results {
-		wg.Go(func() { checkURL(append(result, url)) })
+		checkSlots <- struct{}{}
+		wg.Go(func() {
+			defer func() { <-checkSlots }()
+			checkURL(append(result, url))
+		})
 	}
 	wg.Wait()
 }

@@ -1,9 +1,9 @@
 module github.com/crtsh/ccadb_data
 
-go 1.25.0
+go 1.26.0
 
 require (
-	github.com/hueristiq/hq-lib-url-go v0.0.0-20261030100838-cfbfc90508da
+	github.com/hueristiq/hq-lib-url-go v0.0.0-20261103132055-f8554247377c
 	go.uber.org/zap v1.28.0
 )
 

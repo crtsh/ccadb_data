@@ -1,5 +1,5 @@
-github.com/hueristiq/hq-lib-url-go v0.0.0-20261103132055-f8554247377c h1:NHZJLFU0+2NxsltKWu7p4qJbh6KvUHfUOFoK6DFbfno=
-github.com/hueristiq/hq-lib-url-go v0.0.0-20261103132055-f8554247377c/go.mod h1:KZt/gfhPE/LZzswHAILkx7Y9kn/tFN+eV03qb2s23KY=
+github.com/hueristiq/hq-lib-url-go v0.0.0-20261105111042-8de5d43dec7d h1:CMbFT/KnktFz+MvlCdO0t57RL2lI1yKmAZKqzg9h8VU=
+github.com/hueristiq/hq-lib-url-go v0.0.0-20261105111042-8de5d43dec7d/go.mod h1:KZt/gfhPE/LZzswHAILkx7Y9kn/tFN+eV03qb2s23KY=
 github.com/stretchr/testify v1.12.1 h1:EuwCh5fleGS7H32xRwO3wRGT7DxrDhLAT6FF8MpWDWE=
 github.com/stretchr/testify v1.12.1/go.mod h1:MDEgiDPPsNp5cuIrHPPCyornHKgEVbtFUmoNlxoYthg=
 go.uber.org/goleak v1.3.0 h1:2K3zAYmnTNqV73imy9J1T3WC+gmCePx2hEGkimedGto=

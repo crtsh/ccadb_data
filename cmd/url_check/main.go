@@ -86,8 +86,7 @@ func main() {
 
 	// Parse the CSV data.
 	results := make(map[string][]string)
-	e := extractor.New(extractor.WithScheme())
-	regex, err := e.CompileRegex()
+	e, err := extractor.New(extractor.WithScheme())
 	if err != nil {
 		fmt.Fprintf(os.Stderr, "Error compiling URL regex: %v\n", err)
 		os.Exit(1)
@@ -110,7 +109,7 @@ func main() {
 		if len(os.Args) < 3 || record[caOwnerIdx] == os.Args[2] || record[subCAOwnerIdx] == os.Args[2] {
 			// Add all encountered URLs to a map.
 			for _, field := range record {
-				for _, url := range regex.FindAllString(field, -1) {
+				for _, url := range e.Extract(field) {
 					results[url] = []string{record[caOwnerIdx], record[subCAOwnerIdx]}
 				}
 			}
